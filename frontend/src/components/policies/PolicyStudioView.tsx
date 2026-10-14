@@ -5,6 +5,9 @@ import { Project } from '../../types/project';
 import { Policy, PolicyStatus } from '../../types/policy';
 import { CreateProjectModal } from './CreateProjectModal';
 import { PolicyBuilderModal } from './PolicyBuilderModal';
+import { EditPolicyModal } from './EditPolicyModal';
+import { PolicyCodeSnippetModal } from './PolicyCodeSnippetModal';
+import { formatKeyStrategyLabel, KEY_STRATEGY_DETAILS } from '../../utils/keyStrategy';
 import { 
   Layers, 
   FolderPlus, 
@@ -17,7 +20,9 @@ import {
   Cpu, 
   Folder, 
   AlertCircle,
-  ExternalLink 
+  ExternalLink,
+  Edit3,
+  Code2 
 } from 'lucide-react';
 
 export const PolicyStudioView: React.FC = () => {
@@ -31,6 +36,8 @@ export const PolicyStudioView: React.FC = () => {
 
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
   const [createPolicyModalOpen, setCreatePolicyModalOpen] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [selectedSnippetPolicy, setSelectedSnippetPolicy] = useState<Policy | null>(null);
 
   // Load projects
   const loadProjects = async () => {
@@ -286,10 +293,18 @@ export const PolicyStudioView: React.FC = () => {
 
                     {/* Key Strategy */}
                     <td className="py-3.5 px-4 font-mono">
-                      <span className="px-2 py-0.5 rounded bg-[#131315] text-[#fb923c] border border-white/[0.06] font-semibold text-[10px]">
-                        {policy.keyStrategy.type}
-                        {policy.keyStrategy.headerName && ` (${policy.keyStrategy.headerName})`}
-                      </span>
+                      <div className="relative group inline-block">
+                        <span className="px-2 py-0.5 rounded bg-[#131315] text-[#fb923c] border border-white/[0.06] font-semibold text-[10px] cursor-help inline-flex items-center gap-1">
+                          {formatKeyStrategyLabel(policy.keyStrategy)}
+                        </span>
+                        <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block w-52 p-2.5 rounded-lg bg-[#222225] border border-white/[0.15] shadow-xl text-[10px] font-sans text-[#fafafa] z-30 pointer-events-none">
+                          <div className="font-bold text-[#fb923c] mb-0.5">Key Strategy Details</div>
+                          {policy.keyStrategy?.type === 'CUSTOM' || policy.keyStrategy?.type === 'COMPOSITE'
+                            ? `Composite compound key composed of [${(policy.keyStrategy.fields || policy.keyStrategy.custom || ['USER_ID', 'IP']).join(', ')}] values from request body.`
+                            : KEY_STRATEGY_DETAILS[policy.keyStrategy?.type as 'IP' | 'USER_ID' | 'ENDPOINT']?.hoverOverview ||
+                              'Key extracted strictly from request body.'}
+                        </div>
+                      </div>
                     </td>
 
                     {/* Fail Mode */}
@@ -331,6 +346,20 @@ export const PolicyStudioView: React.FC = () => {
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedSnippetPolicy(policy)}
+                          title="View Integration Code"
+                          className="p-1.5 rounded-lg bg-[#27272a] hover:bg-[#353437] text-[#a1a1aa] hover:text-[#fb923c] border border-white/[0.08] transition-colors"
+                        >
+                          <Code2 className="w-3.5 h-3.5 text-[#fb923c]" />
+                        </button>
+                        <button
+                          onClick={() => setEditingPolicy(policy)}
+                          title="Edit Policy Configuration"
+                          className="p-1.5 rounded-lg bg-[#27272a] hover:bg-[#353437] text-[#a1a1aa] hover:text-[#fb923c] border border-white/[0.08] transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleStatusToggle(policy)}
                           title={policy.status === 'ACTIVE' ? 'Deactivate Policy' : 'Activate Policy'}
@@ -374,6 +403,28 @@ export const PolicyStudioView: React.FC = () => {
           onPolicyCreated={newPol => {
             setPolicies(prev => [newPol, ...prev]);
           }}
+        />
+      )}
+
+      {selectedProject && editingPolicy && (
+        <EditPolicyModal
+          isOpen={!!editingPolicy}
+          policy={editingPolicy}
+          projectName={selectedProject.name}
+          onClose={() => setEditingPolicy(null)}
+          onPolicyUpdated={updated => {
+            setPolicies(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+            setEditingPolicy(null);
+          }}
+        />
+      )}
+
+      {selectedProject && selectedSnippetPolicy && (
+        <PolicyCodeSnippetModal
+          isOpen={!!selectedSnippetPolicy}
+          policy={selectedSnippetPolicy}
+          projectName={selectedProject.name}
+          onClose={() => setSelectedSnippetPolicy(null)}
         />
       )}
     </div>
