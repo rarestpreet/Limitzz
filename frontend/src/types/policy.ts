@@ -2,7 +2,8 @@ export type AlgorithmType = 'TOKEN_BUCKET' | 'ANCHORED_WINDOW';
 export type FailMode = 'FAIL_OPEN' | 'FAIL_CLOSED';
 export type PolicyStatus = 'ACTIVE' | 'INACTIVE' | 'TERMINATED';
 
-export type KeyStrategyType = 'IP' | 'USER' | 'API_KEY' | 'CUSTOM' | 'COMPOSITE';
+export type KeyComponent = 'USER_ID' | 'IP' | 'ENDPOINT';
+export type KeyStrategyType = 'IP' | 'USER_ID' | 'USER' | 'ENDPOINT' | 'CUSTOM' | 'COMPOSITE';
 
 export interface TokenBucketConfig {
   capacity: number;
@@ -18,8 +19,10 @@ export interface AnchoredWindowConfig {
 
 export interface KeyStrategyConfig {
   type: KeyStrategyType;
-  headerName?: string;
+  fields?: KeyComponent[] | string[];
+  custom?: KeyComponent[] | string[];
   strategies?: KeyStrategyConfig[];
+  headerName?: string;
 }
 
 export interface Policy {

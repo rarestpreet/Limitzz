@@ -41,10 +41,7 @@ public class PolicyController {
     }
 
     /**
-     * Get a single policy by ID using query parameter.
-     * Accessible via:
-     * - GET /policies?policyId={id}
-     * - GET /projects/{projectId}/policies?policyId={id}
+     * Get a single policy by ID using query parameter or path variable.
      */
     @GetMapping(value = {"/policies", "/projects/{projectId}/policies"}, params = "policyId")
     public ResponseEntity<PolicyResponse> getPolicyById(
@@ -54,11 +51,16 @@ public class PolicyController {
         return ResponseEntity.ok(policyService.getPolicyById(customerId, policyId));
     }
 
+    @GetMapping(value = {"/policies/{policyId}", "/projects/{projectId}/policies/{policyId}"})
+    public ResponseEntity<PolicyResponse> getPolicyByPath(
+            @AuthenticationPrincipal CustomerUserDetails principal,
+            @PathVariable UUID policyId) {
+        UUID customerId = principal.getCustomer().getId();
+        return ResponseEntity.ok(policyService.getPolicyById(customerId, policyId));
+    }
+
     /**
-     * Full update of a policy using query parameter.
-     * Accessible via:
-     * - PUT /policies?policyId={id}
-     * - PUT /projects/{projectId}/policies?policyId={id}
+     * Full update of a policy using query parameter or path variable.
      */
     @PutMapping(value = {"/policies", "/projects/{projectId}/policies"}, params = "policyId")
     public ResponseEntity<PolicyResponse> updatePolicy(
@@ -69,10 +71,17 @@ public class PolicyController {
         return ResponseEntity.ok(policyService.updatePolicy(customerId, policyId, request));
     }
 
+    @PutMapping(value = {"/policies/{policyId}", "/projects/{projectId}/policies/{policyId}"})
+    public ResponseEntity<PolicyResponse> updatePolicyByPath(
+            @AuthenticationPrincipal CustomerUserDetails principal,
+            @PathVariable UUID policyId,
+            @Valid @RequestBody UpdatePolicyRequest request) {
+        UUID customerId = principal.getCustomer().getId();
+        return ResponseEntity.ok(policyService.updatePolicy(customerId, policyId, request));
+    }
+
     /**
-     * Patch-style status toggle using query parameter:
-     * - PATCH /policies/status?policyId={id}&status={status}
-     * - PATCH /projects/{projectId}/policies/status?policyId={id}&status={status}
+     * Patch-style status toggle using query parameter or path variable.
      */
     @PatchMapping(value = {"/policies/status", "/projects/{projectId}/policies/status"}, params = "policyId")
     public ResponseEntity<PolicyResponse> updatePolicyStatus(
@@ -83,15 +92,31 @@ public class PolicyController {
         return ResponseEntity.ok(policyService.updatePolicyStatus(customerId, policyId, status));
     }
 
+    @PatchMapping(value = {"/policies/{policyId}/status", "/projects/{projectId}/policies/{policyId}/status"})
+    public ResponseEntity<PolicyResponse> updatePolicyStatusByPath(
+            @AuthenticationPrincipal CustomerUserDetails principal,
+            @PathVariable UUID policyId,
+            @RequestParam PolicyStatus status) {
+        UUID customerId = principal.getCustomer().getId();
+        return ResponseEntity.ok(policyService.updatePolicyStatus(customerId, policyId, status));
+    }
+
     /**
-     * Soft-delete a policy using query parameter:
-     * - DELETE /policies?policyId={id}
-     * - DELETE /projects/{projectId}/policies?policyId={id}
+     * Soft-delete a policy using query parameter or path variable.
      */
     @DeleteMapping(value = {"/policies", "/projects/{projectId}/policies"}, params = "policyId")
     public ResponseEntity<Void> deletePolicy(
             @AuthenticationPrincipal CustomerUserDetails principal,
             @RequestParam UUID policyId) {
+        UUID customerId = principal.getCustomer().getId();
+        policyService.deletePolicy(customerId, policyId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping(value = {"/policies/{policyId}", "/projects/{projectId}/policies/{policyId}"})
+    public ResponseEntity<Void> deletePolicyByPath(
+            @AuthenticationPrincipal CustomerUserDetails principal,
+            @PathVariable UUID policyId) {
         UUID customerId = principal.getCustomer().getId();
         policyService.deletePolicy(customerId, policyId);
         return ResponseEntity.noContent().build();

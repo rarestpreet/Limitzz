@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { createPolicy } from '../../api/policies';
-import { AlgorithmType, CreatePolicyRequest, FailMode, KeyStrategyType, Policy } from '../../types/policy';
+import { AlgorithmType, CreatePolicyRequest, FailMode, KeyStrategyConfig, Policy } from '../../types/policy';
 import { Layers, X, AlertCircle, ShieldAlert, Cpu } from 'lucide-react';
+import { KeyStrategySelector } from './KeyStrategySelector';
 
 interface PolicyBuilderModalProps {
   isOpen: boolean;
@@ -33,8 +34,7 @@ export const PolicyBuilderModal: React.FC<PolicyBuilderModalProps> = ({
   const [windowMs, setWindowMs] = useState<number>(60000);
 
   // Key Strategy & FailMode
-  const [keyStrategyType, setKeyStrategyType] = useState<KeyStrategyType>('IP');
-  const [customHeaderName, setCustomHeaderName] = useState('X-Client-Id');
+  const [keyStrategy, setKeyStrategy] = useState<KeyStrategyConfig>({ type: 'IP' });
   const [failMode, setFailMode] = useState<FailMode>('FAIL_OPEN');
 
   const [loading, setLoading] = useState(false);
@@ -62,9 +62,7 @@ export const PolicyBuilderModal: React.FC<PolicyBuilderModalProps> = ({
             limit: Number(windowLimit),
             windowMs: Number(windowMs),
           },
-      keyStrategy: keyStrategyType === 'CUSTOM'
-        ? { type: 'CUSTOM', headerName: customHeaderName }
-        : { type: keyStrategyType },
+      keyStrategy,
       failMode,
     };
 
@@ -241,38 +239,7 @@ export const PolicyBuilderModal: React.FC<PolicyBuilderModalProps> = ({
           )}
 
           {/* Key Strategy */}
-          <div className="flex flex-col gap-1.5">
-            <label className="font-medium text-[#a1a1aa]">Key Extraction Strategy</label>
-            <div className="grid grid-cols-4 gap-1.5 bg-[#131315] p-1 rounded-lg border border-white/[0.06]">
-              {(['IP', 'USER', 'API_KEY', 'CUSTOM'] as KeyStrategyType[]).map(strategy => (
-                <button
-                  key={strategy}
-                  type="button"
-                  onClick={() => setKeyStrategyType(strategy)}
-                  className={`py-1.5 text-xs font-mono rounded transition-all ${
-                    keyStrategyType === strategy
-                      ? 'bg-[#27272a] text-[#fb923c] font-bold shadow-sm'
-                      : 'text-[#a1a1aa] hover:text-[#fafafa]'
-                  }`}
-                >
-                  {strategy}
-                </button>
-              ))}
-            </div>
-            {keyStrategyType === 'CUSTOM' && (
-              <div className="mt-1 flex flex-col gap-1">
-                <label className="text-[11px] text-[#a1a1aa]">Custom HTTP Header Name</label>
-                <input
-                  type="text"
-                  required
-                  value={customHeaderName}
-                  onChange={e => setCustomHeaderName(e.target.value)}
-                  placeholder="X-Tenant-Id"
-                  className="px-3 py-1.5 rounded bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa]"
-                />
-              </div>
-            )}
-          </div>
+          <KeyStrategySelector value={keyStrategy} onChange={setKeyStrategy} />
 
           {/* Fail Mode */}
           <div className="flex flex-col gap-1.5">
