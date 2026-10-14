@@ -214,7 +214,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }`}
             >
               <KeyRound className="w-3.5 h-3.5" />
-              <span>Forgot OTP</span>
+              <span>Reset Password</span>
             </button>
           </div>
         </div>
@@ -333,11 +333,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {/* TAB 3: OTP PASSWORD RECOVERY */}
+          {/* TAB 3: PASSWORD RESET RECOVERY */}
           {activeTab === 'otp' && (
             <div className="flex flex-col gap-4">
               {otpStep === 1 ? (
                 <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+                  <div className="p-3 rounded-xl bg-[#27272a]/60 border border-white/[0.08] text-xs flex items-start gap-2.5">
+                    <KeyRound className="w-4 h-4 text-[#f97316] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#fafafa]">Password Reset Verification</span>
+                      <p className="text-[11px] text-[#a1a1aa] mt-0.5 leading-relaxed">
+                        Enter your registered account email below. We will send a secure 6-digit one-time password (OTP) to verify your identity and allow you to set a new password.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium text-[#a1a1aa]">Account Registered Email</label>
                     <input
@@ -349,22 +359,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full px-3.5 py-2.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-sans text-[#fafafa] placeholder-[#71717a] focus:outline-none focus:border-[#f97316]"
                     />
                     <p className="text-[11px] text-[#71717a]">
-                      A 6-digit one-time code will be dispatched to this address (5 min validity).
+                      A 6-digit verification code will be dispatched to this inbox (valid for 5 minutes).
                     </p>
                   </div>
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-2.5 rounded-lg bg-[#f97316] hover:bg-[#fb923c] text-[#09090b] font-semibold text-xs transition-all disabled:opacity-50"
+                    className="w-full py-2.5 rounded-lg bg-[#f97316] hover:bg-[#fb923c] text-[#09090b] font-semibold text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? 'Sending OTP...' : 'Send Verification OTP'}
+                    <span>{loading ? 'Sending Code...' : 'Send Password Reset Code'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+                  <div className="p-3 rounded-xl bg-[#27272a]/60 border border-white/[0.08] text-xs flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-[#4edea3] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#fafafa]">Enter Verification Code</span>
+                      <p className="text-[11px] text-[#a1a1aa] mt-0.5 leading-relaxed">
+                        Check your inbox at <strong className="text-[#fafafa] font-mono">{otpEmail}</strong> for the 6-digit code. Then choose your new password.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-[#a1a1aa]">6-Digit OTP Code</label>
+                    <label className="text-xs font-medium text-[#a1a1aa]">6-Digit Verification Code</label>
                     <input
                       type="text"
                       required
@@ -377,7 +398,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-[#a1a1aa]">New Password</label>
+                    <label className="text-xs font-medium text-[#a1a1aa]">New Account Password (min 8 chars)</label>
                     <input
                       type="password"
                       required
@@ -402,7 +423,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       disabled={loading}
                       className="flex-1 py-2.5 rounded-lg bg-[#f97316] hover:bg-[#fb923c] text-[#09090b] font-semibold text-xs transition-all disabled:opacity-50"
                     >
-                      {loading ? 'Updating Password...' : 'Verify & Reset Password'}
+                      {loading ? 'Updating Password...' : 'Verify & Set New Password'}
                     </button>
                   </div>
                 </form>

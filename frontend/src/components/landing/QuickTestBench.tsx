@@ -280,7 +280,8 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
   const handleBurstTest = async () => {
     if (!validateTrialAuth()) return;
 
-    const count = Math.max(1, Math.min(requestCount || 10, 100));
+    const maxAllowedCount = testMode === 'trial' ? 500 : 50;
+    const count = Math.max(1, Math.min(requestCount || 10, maxAllowedCount));
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -312,7 +313,8 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
   const handleConcurrentTest = async () => {
     if (!validateTrialAuth()) return;
 
-    const count = Math.max(1, Math.min(requestCount || 10, 100));
+    const maxAllowedCount = testMode === 'trial' ? 500 : 50;
+    const count = Math.max(1, Math.min(requestCount || 10, maxAllowedCount));
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -407,30 +409,55 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
         </p>
 
         {/* Mode Selector Tabs */}
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => { setTestMode('free'); setErrorMessage(null); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${testMode === 'free'
-                ? 'bg-[#f97316] text-[#09090b] font-semibold shadow-[0_0_12px_rgba(249,115,22,0.3)]'
-                : 'bg-[#18181b] text-[#a1a1aa] hover:text-[#fafafa] border border-white/[0.08]'
-              }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>Quick Free Test (Guest)</span>
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setTestMode('free');
+                setErrorMessage(null);
+                if (requestCount > 50) setRequestCount(10);
+                if (capacity > 200) setCapacity(10);
+                if (refillRate > 50) setRefillRate(2);
+                if (windowLimit > 500) setWindowLimit(20);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${testMode === 'free'
+                  ? 'bg-[#f97316] text-[#09090b] font-semibold shadow-[0_0_12px_rgba(249,115,22,0.3)]'
+                  : 'bg-[#18181b] text-[#a1a1aa] hover:text-[#fafafa] border border-white/[0.08]'
+                }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Quick Free Test (Guest)</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => { setTestMode('trial'); setErrorMessage(null); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${testMode === 'trial'
-                ? 'bg-[#f97316] text-[#09090b] font-semibold shadow-[0_0_12px_rgba(249,115,22,0.3)]'
-                : 'bg-[#18181b] text-[#a1a1aa] hover:text-[#fafafa] border border-white/[0.08]'
-              }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Trial Test (API Key Required)</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTestMode('trial');
+                setErrorMessage(null);
+                if (requestCount < 10) setRequestCount(50);
+                if (capacity < 20) setCapacity(100);
+                if (refillRate < 5) setRefillRate(20);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${testMode === 'trial'
+                  ? 'bg-[#f97316] text-[#09090b] font-semibold shadow-[0_0_12px_rgba(249,115,22,0.3)]'
+                  : 'bg-[#18181b] text-[#a1a1aa] hover:text-[#fafafa] border border-white/[0.08]'
+                }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Trial Test (API Key Required)</span>
+            </button>
+          </div>
+
+          <span className={`text-[11px] font-mono px-3 py-1.5 rounded-lg border ${
+            testMode === 'trial'
+              ? 'bg-[#003824]/30 border-[#4edea3]/40 text-[#4edea3]'
+              : 'bg-[#18181b] border-white/[0.08] text-[#a1a1aa]'
+          }`}>
+            {testMode === 'trial'
+              ? '✨ Unlocked Trial Tier: Up to 500 concurrent requests & 50,000 capacity'
+              : '🛡️ Free Sandbox Tier: Up to 50 requests & 200 capacity'}
+          </span>
         </div>
       </div>
 
@@ -591,12 +618,12 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                       desc="Maximum burst capacity. Defines the peak token volume the bucket holds when idle."
                     />
                   </span>
-                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-200' : '1-1000'}</span>
+                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-200' : '1-50,000'}</span>
                 </div>
                 <input
                   type="number"
                   min="1"
-                  max={testMode === 'free' ? 200 : 1000}
+                  max={testMode === 'free' ? 200 : 50000}
                   value={capacity}
                   onChange={e => setCapacity(parseInt(e.target.value) || 1)}
                   className="px-2.5 py-1.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa] focus:outline-none focus:border-[#f97316]"
@@ -612,12 +639,12 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                       desc="Replenishment rate. Number of tokens replenished back into the bucket every cycle."
                     />
                   </span>
-                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-50' : '1-500'}</span>
+                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-50' : '1-10,000'}</span>
                 </div>
                 <input
                   type="number"
                   min="1"
-                  max={testMode === 'free' ? 50 : 500}
+                  max={testMode === 'free' ? 50 : 10000}
                   value={refillRate}
                   onChange={e => setRefillRate(parseInt(e.target.value) || 1)}
                   className="px-2.5 py-1.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa] focus:outline-none focus:border-[#f97316]"
@@ -633,12 +660,12 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                       desc="Refill frequency in milliseconds (e.g., 1000ms = 1 refill batch added per second)."
                     />
                   </span>
-                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '500+' : '100+'}</span>
+                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '250ms+' : '10ms+'}</span>
                 </div>
                 <input
                   type="number"
-                  step="100"
-                  min={testMode === 'free' ? 500 : 100}
+                  step="50"
+                  min={testMode === 'free' ? 250 : 10}
                   value={refillIntervalMs}
                   onChange={e => setRefillIntervalMs(parseInt(e.target.value) || 1000)}
                   className="px-2.5 py-1.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa] focus:outline-none focus:border-[#f97316]"
@@ -656,12 +683,12 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                       desc="Request quota. The maximum total requests permitted within each discrete window."
                     />
                   </span>
-                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-500' : '1-10000'}</span>
+                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1-500' : '1-50,000'}</span>
                 </div>
                 <input
                   type="number"
                   min="1"
-                  max={testMode === 'free' ? 500 : 10000}
+                  max={testMode === 'free' ? 500 : 50000}
                   value={windowLimit}
                   onChange={e => setWindowLimit(parseInt(e.target.value) || 1)}
                   className="px-2.5 py-1.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa] focus:outline-none focus:border-[#f97316]"
@@ -677,12 +704,12 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                       desc="Duration of anchored window in milliseconds (e.g., 60,000ms = 1m). Counter resets across window boundary."
                     />
                   </span>
-                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1s-5m' : '1s-1h'}</span>
+                  <span className="text-[10px] text-[#71717a]">{testMode === 'free' ? '1s-5m' : '50ms-1h'}</span>
                 </div>
                 <input
                   type="number"
-                  step="1000"
-                  min="1000"
+                  step="500"
+                  min={testMode === 'free' ? 1000 : 50}
                   max={testMode === 'free' ? 300000 : 3600000}
                   value={windowMs}
                   onChange={e => setWindowMs(parseInt(e.target.value) || 60000)}
@@ -699,7 +726,7 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
                 Number of Requests (Batch Size)
                 <ParamTooltip
                   title="Concurrency Batch Size"
-                  desc="Number of requests dispatched during Burst or Concurrent tests. Use higher values (e.g. 15, 25, 50) to evaluate Redis concurrency accuracy and race conditions."
+                  desc="Number of requests dispatched during Burst or Concurrent tests. Trial mode allows up to 500 concurrent requests to test high-scale concurrency and race conditions."
                 />
               </label>
               <span className="text-[11px] font-mono text-[#fb923c] font-semibold">{requestCount} req</span>
@@ -709,14 +736,14 @@ export const QuickTestBench: React.FC<QuickTestBenchProps> = ({ onOpenAuth }) =>
               <input
                 type="number"
                 min="1"
-                max="100"
+                max={testMode === 'trial' ? 500 : 50}
                 value={requestCount}
-                onChange={e => setRequestCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                onChange={e => setRequestCount(Math.max(1, Math.min(testMode === 'trial' ? 500 : 50, parseInt(e.target.value) || 1)))}
                 className="w-24 px-3 py-1.5 rounded-lg bg-[#131315] border border-white/[0.1] text-xs font-mono text-[#fafafa] focus:outline-none focus:border-[#f97316]"
               />
               {/* Presets */}
-              <div className="flex items-center gap-1.5">
-                {[1, 5, 10, 20, 50].map(val => (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(testMode === 'trial' ? [10, 50, 100, 250, 500] : [1, 5, 10, 25, 50]).map(val => (
                   <button
                     key={val}
                     type="button"

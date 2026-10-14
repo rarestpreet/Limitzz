@@ -59,12 +59,12 @@ RLaaS operates across two planes: the **Management / Configuration Plane** and t
 2. **Policy Resolution**:
    - Based on the authenticated customer and requested endpoint URI (with optional `projectId` disambiguation), RLaaS retrieves the active rate limit policy.
 3. **Contextual Key Extraction (`KeyStrategy`)**:
-   - The configured `KeyStrategy` dynamically inspects the request context and extracts the target limiter key:
-     - `IP`: Clamps by client IPv4/IPv6 address.
-     - `USER`: Clamps by authenticated user identifier.
-     - `API_KEY`: Clamps by calling microservice API key.
-     - `CUSTOM`: Clamps by custom HTTP headers (e.g., `X-Organization-ID`, `X-Tenant-Slug`).
-     - `COMPOSITE`: Combines multiple strategies (e.g., `IP + UserID`) for multi-dimensional limiting.
+   - The configured `KeyStrategy` dynamically extracts the target limiter key strictly from the request body (`RateLimitCheckRequest`):
+     - `IP`: Clamps by client IPv4/IPv6 address (`clientIp` from request body).
+     - `USER_ID`: Clamps by authenticated user identifier (`userId` from request body; constant per user across IP and device churn).
+     - `ENDPOINT`: Generic rate limit applied to an API endpoint path (`endpoint` from request body) across all callers irrespective of device or user identity.
+     - `CUSTOM` (Composite): Combines multiple request-body attributes (array of `[USER_ID, IP, ENDPOINT]`) into a compound Redis key (e.g., `user:usr_123:ip:10.0.0.1` or `user:usr_123:endpoint:/checkout`) for multi-tier throttling.
+   - *Design Decision*: Sourcing keys strictly from the request body eliminates brittle arbitrary header parsing and ensures predictable rate-limit clustering.
 4. **Circuit Breaker & Health Inspection**:
    - The `ServiceHealthRegistry` continuously monitors Redis availability. If Redis is down, the request immediately branches into the policy's configured `FailMode`:
      - `FAIL_OPEN`: Returns degraded `ALLOW` with `X-RateLimit-Degraded: true` to prevent blocking critical user traffic.
@@ -293,9 +293,9 @@ k6 run k6/suite.js
    docker compose up --build
    ```
    Docker Compose spins up:
-   - **PostgreSQL 16**: Port `5432`
-   - **Redis 7**: Port `6379`
-   - **RLaaS Backend**: Port `8080` (health monitored via Actuator)
+   - **PostgreSQL 16**: Port `5432` with persistent named volume `rlaas-postgres-data` (`postgres_data:/var/lib/postgresql/data`) preventing data loss across restarts.
+   - **Redis 7**: Port `6379` (in-memory rate limit token storage)
+   - **RLaaS Backend**: Port `8081` (health monitored via Actuator at `/actuator/health`)
 
 ---
 
@@ -311,9 +311,9 @@ docker compose up postgres redis -d
 # Build and run with Maven wrapper
 ./mvnw spring-boot:run
 ```
-The backend initializes on `http://localhost:8080`. Verify health:
+The backend initializes on `http://localhost:8081`. Verify health:
 ```bash
-curl http://localhost:8080/actuator/health
+curl http://localhost:8081/actuator/health
 ```
 
 #### 3. Run Developer Console Frontend
@@ -340,6 +340,9 @@ The developer console will be accessible at `http://localhost:5173`.
 | **Projects** | `GET` | `/projects` | List projects with policy statistics | Bearer Token |
 | **Policies** | `POST` | `/projects/{projectId}/policies` | Attach rate limit policy to project | Bearer Token |
 | **Policies** | `GET` | `/projects/{projectId}/policies` | List all policies under a project | Bearer Token |
+| **Policies** | `PUT` | `/policies/{policyId}` | Full update of existing policy configuration | Bearer Token |
+| **Policies** | `PATCH` | `/policies/{policyId}/status` | Toggle policy status (`ACTIVE` / `INACTIVE`) | Bearer Token |
+| **Policies** | `DELETE` | `/policies/{policyId}` | Soft-delete policy | Bearer Token |
 | **API Keys** | `POST` | `/api-keys` | Generate new hashed API key for runtime use | Bearer Token |
 | **API Keys** | `GET` | `/api-keys` | List active & revoked API keys | Bearer Token |
 | **Decision** | `POST` | `/v1/check` | **Evaluate rate limit for an incoming request** | `X-API-Key` |
@@ -350,7 +353,7 @@ The developer console will be accessible at `http://localhost:5173`.
 ### Quick cURL Example: Checking Rate Limit
 
 ```bash
-curl -i -X POST "http://localhost:8080/v1/check" \
+curl -i -X POST "http://localhost:8081/v1/check" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: rlaas_live_abcdef1234567890" \
   -d '{
@@ -397,12 +400,30 @@ Content-Type: application/json
 
 ---
 
+## 💻 Developer Console & Dynamic Integration Snippets
+
+The built-in Developer Console (`http://localhost:5173`) provides control plane management for tenant accounts, projects, rate-limiting policies, and API keys:
+
+1. **Policy Studio & Live Config Editing**:
+   - Create and edit policies dynamically using the `EditPolicyModal`.
+   - Update algorithm parameters (`capacity`, `refillRate`, `limit`, `windowMs`) and failure semantics (`FAIL_OPEN` vs `FAIL_CLOSED`) with zero downtime.
+   - **Key Strategy Selector**: Choose between `IP`, `USER_ID`, `ENDPOINT`, or `CUSTOM` (Composite). Includes interactive hover overviews describing key behaviors and a live compound key formula preview (`Formula: user:{userId}:ip:{clientIp}`).
+
+2. **Row-Level Dynamic Integration Snippets (`<Code2 />`)**:
+   - Each policy row features a **View Integration Code** action button opening the pre-configured integration modal (`PolicyCodeSnippetModal`).
+   - Generates production-ready snippets for **JavaScript (Node.js)**, **Java (`HttpClient`)**, **Python (`requests`)**, and **cURL**.
+   - **Context-Aware Payload Generation**: Dynamically structures request body attributes to match the policy's specific `keyStrategy` (`endpoint`, `userId`, `clientIp`).
+   - **Pre-Execution Guard Pattern**: Wraps protected business logic (e.g. `executeProtectedOrderService()`), verifying `POST /v1/check` and handling HTTP `429 Too Many Requests` with RFC 6585 `Retry-After` backoff.
+   - **Interactive Key Injection**: Active tenant API keys are fetched automatically for seamless one-click copying.
+
+---
+
 ## 📁 Repository Structure
 
 ```
 RLaaS/
 ├── .env.example                       # Sample environment configuration
-├── docker-compose.yml                 # Multi-container orchestration (DB, Redis, Backend)
+├── docker-compose.yml                 # Multi-container orchestration (DB, Redis, Backend, Persistent Volumes)
 ├── Dockerfile                         # Production-grade multi-stage backend Docker build
 ├── pom.xml                            # Maven dependencies & build configuration
 ├── docs/                              # Architecture documentation & curl collections
@@ -413,7 +434,9 @@ RLaaS/
 ├── frontend/                          # Developer Console (React 19 + TypeScript + Vite)
 │   ├── src/
 │   │   ├── components/                # UI components (Auth, Keys, Policies, Projects)
-│   │   ├── api/                       # Axios HTTP client & API bindings
+│   │   │   └── policies/              # PolicyBuilderModal, EditPolicyModal, KeyStrategySelector, PolicyCodeSnippetModal
+│   │   ├── utils/                     # codeSnippetGenerator.ts, keyStrategy.ts
+│   │   ├── api/                       # API clients & backend bindings
 │   │   └── App.tsx                    # Main console application
 │   ├── package.json
 │   └── vite.config.ts
