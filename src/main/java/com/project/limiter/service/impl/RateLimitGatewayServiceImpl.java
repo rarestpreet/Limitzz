@@ -58,6 +58,7 @@ public class RateLimitGatewayServiceImpl implements RateLimitGatewayService {
         RateLimitContext context = RateLimitContext.builder()
                 .clientIp(request.getClientIp())
                 .userId(request.getUserId())
+                .endpoint(request.getEndpoint())
                 .apiKey(rawApiKey)
                 .customHeaders(request.getCustomHeaders() != null ? request.getCustomHeaders() : Collections.emptyMap())
                 .build();

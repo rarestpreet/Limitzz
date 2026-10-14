@@ -16,6 +16,7 @@ public class RateLimitContext {
 
     private String userId;
     private String clientIp;
+    private String endpoint;
     private String apiKey;
     private String headerName;
 

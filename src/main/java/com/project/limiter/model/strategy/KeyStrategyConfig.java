@@ -10,10 +10,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 )
 @JsonSubTypes({
     @JsonSubTypes.Type(value = UserKeyStrategy.class, name = "USER"),
+    @JsonSubTypes.Type(value = UserKeyStrategy.class, name = "USER_ID"),
     @JsonSubTypes.Type(value = IpKeyStrategy.class, name = "IP"),
-    @JsonSubTypes.Type(value = ApiKeyStrategy.class, name = "API_KEY"),
-    @JsonSubTypes.Type(value = CustomKeyStrategy.class, name = "CUSTOM"),
-    @JsonSubTypes.Type(value = CompositeKeyStrategy.class, name = "COMPOSITE")
+    @JsonSubTypes.Type(value = EndpointKeyStrategy.class, name = "ENDPOINT"),
+    @JsonSubTypes.Type(value = EndpointKeyStrategy.class, name = "API_NAME"),
+    @JsonSubTypes.Type(value = CompositeKeyStrategy.class, name = "COMPOSITE"),
+    @JsonSubTypes.Type(value = CompositeKeyStrategy.class, name = "CUSTOM")
 })
 public interface KeyStrategyConfig {
     String resolveKey(RateLimitContext ctx);

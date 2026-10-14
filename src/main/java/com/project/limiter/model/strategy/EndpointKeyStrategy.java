@@ -4,16 +4,18 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import lombok.*;
 
-@JsonTypeName("API_KEY")
+@JsonTypeName("ENDPOINT")
 @Getter
 @Setter
 @NoArgsConstructor
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ApiKeyStrategy implements KeyStrategyConfig {
+public class EndpointKeyStrategy implements KeyStrategyConfig {
 
     @Override
     public String resolveKey(RateLimitContext ctx) {
-        return ctx != null && ctx.getApiKey() != null ? "key:" + ctx.getApiKey() : "key:none";
+        return ctx != null && ctx.getEndpoint() != null && !ctx.getEndpoint().isBlank()
+                ? "endpoint:" + ctx.getEndpoint()
+                : "endpoint:generic";
     }
 }
