@@ -1,0 +1,143 @@
+name: RLaaS Release & Deploy
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published] # Triggered when a new Release is published in GitHub UI
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/rarestpreet/rlaas
+
+jobs:
+  build-and-push:
+    name: Build & Push Image to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Needed to push container images to ghcr.io
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Make Maven Wrapper Executable
+        run: chmod +x mvnw
+
+      - name: Code Build Check (No Tests, No Style Check)
+        run: ./mvnw clean package -DskipTests
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Image Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}   # e.g. v1.0.0 → 1.0.0
+            type=raw,value=latest             # Always update :latest
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy to Amazon EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push # Only runs after image build & push succeeds
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.prod.yml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "/opt/rlaas"
+
+      - name: Pull Image & Restart Stack on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            mkdir -p /opt/rlaas
+            cd /opt/rlaas
+
+            # Authenticate Docker daemon on EC2 to pull from GHCR
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u rarestpreet --password-stdin
+
+            # Pull the target release image (tag set by release, fallback to latest)
+            IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
+            docker pull ghcr.io/rarestpreet/rlaas:${IMAGE_TAG:-latest}
+
+            # Export variables for docker-compose.prod.yml
+            export IMAGE_TAG="${IMAGE_TAG:-latest}"
+            if [ -f .env ]; then
+              export DB_PASSWORD=$(grep -E '^DB_PASSWORD=' .env | cut -d '=' -f2-)
+            fi
+
+            # Deploy/update services (postgres, redis, backend)
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "Deployed rlaas:${IMAGE_TAG:-latest} successfully"
+
+      - name: Cleanup EC2 Docker Resources
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
+
+            # Remove older rlaas image tags except the deployed tag and latest
+            echo "Removing superseded rlaas image tags..."
+            docker images ghcr.io/rarestpreet/rlaas --format "{{.Tag}}" | \
+              grep -v -E "^(${IMAGE_TAG:-latest}|latest)$" | \
+              xargs -r -I{} docker rmi ghcr.io/rarestpreet/rlaas:{} || true
+
+            # Prune dangling/untagged image layers
+            echo "Pruning dangling images..."
+            docker image prune -f
+
+            # Prune stopped containers
+            echo "Pruning stopped containers..."
+            docker container prune -f
+
+            # Prune build cache to save disk space on EC2
+            echo "Pruning build cache..."
+            docker builder prune -f
+
+            # Prune unused networks (rlaas-network remains because it is active)
+            echo "Pruning unused networks..."
+            docker network prune -f
+
+            echo "EC2 cleanup complete."

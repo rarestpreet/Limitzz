@@ -1,0 +1,92 @@
+services:
+  # =========================================================================
+  # PostgreSQL Service (Persistent Storage on EC2)
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: rlaas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rlaas_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rlaas-network
+
+  # =========================================================================
+  # Redis Service (In-Memory Atomic Rate Limiter Store)
+  # =========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: rlaas-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rlaas-network
+
+  # =========================================================================
+  # RLaaS Backend Application Service (Pulled from GHCR)
+  # =========================================================================
+  backend:
+    image: ghcr.io/rarestpreet/rlaas:${IMAGE_TAG:-latest}
+    container_name: rlaas-backend
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT:-8081}:${SERVER_PORT:-8081}"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    env_file:
+      - .env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/rlaas_db
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: ${SERVER_PORT:-8081}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rlaas-network
+
+# =============================================================================
+# Shared Bridge Network
+# =============================================================================
+networks:
+  rlaas-network:
+    name: rlaas-network
+    driver: bridge
+
+# =============================================================================
+# Persistent Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    name: rlaas-postgres-data
