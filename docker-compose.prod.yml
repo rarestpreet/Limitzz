@@ -3,7 +3,7 @@ services:
   # PostgreSQL Service (Persistent Storage on EC2)
   # =========================================================================
   postgres:
-    image: postgres:16-alpine
+    image: postgres:latest
     container_name: rlaas-postgres
     restart: unless-stopped
     environment:
@@ -26,7 +26,7 @@ services:
   # Redis Service (In-Memory Atomic Rate Limiter Store)
   # =========================================================================
   redis:
-    image: redis:7-alpine
+    image: redis:latest
     container_name: rlaas-redis
     restart: unless-stopped
     ports:

@@ -55,3 +55,6 @@ management:
   endpoint:
     health:
       show-details: always
+
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}

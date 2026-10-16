@@ -1,4 +1,4 @@
-const API_BASE = '';
+const API_BASE = (import.meta.env.VITE_BASE_URL || '').trim();
 
 export interface ApiError {
   message: string;

@@ -1,23 +1,25 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/auth': 'http://localhost:8081',
-      '/customers': 'http://localhost:8081',
-      '/projects': 'http://localhost:8081',
-      '/policies': 'http://localhost:8081',
-      '/api-keys': 'http://localhost:8081',
-      '/v1': 'http://localhost:8081',
-      '/test': 'http://localhost:8081',
-      '/health': 'http://localhost:8081',
-      '/actuator': 'http://localhost:8081',
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
+    plugins: [react(), tailwindcss()],
+    define: {
+      'import.meta.env.VITE_BASE_URL': JSON.stringify(env.BASE_URL || env.VITE_BASE_URL || ''),
     },
-  },
+    server: {
+      port: 5173,
+      // proxy: {
+      //   '^/(auth|customers|projects|policies|api-keys|v1|test|health|actuator)(/|$)': {
+      //     target,
+      //     changeOrigin: true,
+      //   },
+      // },
+    },
+  }
 })
+
 

@@ -1,3 +1,4 @@
+import { apiFetch } from './client';
 import { ServiceHealth, ServiceName } from '../types/health';
 
 /**
@@ -6,11 +7,8 @@ import { ServiceHealth, ServiceName } from '../types/health';
  */
 export async function fetchServiceHealth(serviceName: ServiceName = 'REDIS'): Promise<ServiceHealth> {
   try {
-    const res = await fetch(`/health?serviceName=${encodeURIComponent(serviceName)}`);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    return await res.json();
+    const endpoint = serviceName === 'REDIS' ? '/health/redis' : `/health?serviceName=${serviceName}`;
+    return await apiFetch<ServiceHealth>(endpoint);
   } catch (err: any) {
     // Fallback if backend or service is completely unreachable
     return {
@@ -23,5 +21,6 @@ export async function fetchServiceHealth(serviceName: ServiceName = 'REDIS'): Pr
     };
   }
 }
+
 
 export const fetchRedisHealth = () => fetchServiceHealth('REDIS');
